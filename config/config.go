@@ -26,7 +26,7 @@ var saveconf = flag.Bool("save", false, "Save options to conf")
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage:        %s [options] [command]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] [command]\n", os.Args[0])
 		flag.PrintDefaults()
 
 	}
@@ -49,6 +49,10 @@ func GetConfigs() Configs {
 		conf.Command = command
 	}
 
+	if *saveconf {
+		saveConfigFile(conf)
+	}
+
 	return conf
 }
 
@@ -60,6 +64,7 @@ func readConfigFile() Configs {
 		log.Fatalf("Faild to open config file: %s", err.Error())
 	} else {
 		log.Infof("Reading options from %s", *configfile)
+		// NewDecoder return a new decoder that reads from r(file).
 		if err := json.NewDecoder(file).Decode(&conf); err != nil {
 			log.Fatalf("Failed to parse config file: %s", err.Error())
 		} else {
@@ -116,7 +121,9 @@ func saveConfigFile(conf Configs) {
 	if err != nil {
 		log.Fatalf("Failed to open config file:", err)
 	}
-	if bytes, err := json.MarshalIndent(conf, "", "  "); err == nil {
+	// MarshalIndent is like Marshal but applies Indent to foramt the outpu
+	// blew is indent four space
+	if bytes, err := json.MarshalIndent(conf, "", "    "); err == nil {
 		if _, err := file.Write(bytes); err != nil {
 			log.Fatalf("Failed to write config file: %s", err.Error())
 		}
