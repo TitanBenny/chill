@@ -34,7 +34,7 @@ type command struct {
 }
 
 // factory mode
-func New(cmdstrings []string) Command {
+func NewCommand(cmdstrings []string) Command {
 	if len(cmdstrings) == 0 {
 		return Empty()
 	}
