@@ -100,6 +100,11 @@ func match(in <-chan string, patterns []string) <-chan string {
 			info, err := os.Stat(fp)
 
 			if os.IsExist(err) || !info.IsDir() {
+				//Split splits path immediately following the final Separator,
+				//separating it into a directory and file name component.
+				//If there is no Separator in path,
+				//Split returns an empty dir and file set to path.
+				//The returned values have the property that path = dir+file.
 				_, fn := filepath.Split(fp)
 				for _, p := range patterns {
 					if ok, _ := filepath.Match(p, fn); ok {

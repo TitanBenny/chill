@@ -76,6 +76,7 @@ func (c *command) Start(delay time.Duration) {
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
+	// starts the specifiled command but does not wait for it to complete.
 	err := cmd.Start()
 
 	exit := make(chan struct{})
@@ -92,8 +93,12 @@ func (c *command) Start(delay time.Duration) {
 				close(exit)
 			}()
 
+			// waits for the command to exit.
+			// it must have been started by Start.
 			cmd.Wait()
 
+			// processState stores information about a process, as reported by Wait.
+			// Success reports whether the program exited successfully,such as with exit status 0 on unix.
 			if cmd.ProcessState.Success() {
 				log.Info("application has start successful!")
 			} else {
@@ -131,6 +136,7 @@ func (c *command) Terminate(wait time.Duration) {
 			return
 		case <-time.After(wait):
 			log.Info("-Killing process")
+			//may be cannot kill process
 			c.kill(syscall.SIGTERM)
 		}
 	}
