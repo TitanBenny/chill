@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,8 +30,9 @@ type command struct {
 	cmd  *exec.Cmd
 
 	// mutex lock
-	mutex *sync.Mutex
-	exit  chan struct{}
+	mutex  *sync.Mutex
+	exit   chan struct{}
+	cancel context.CancelFunc
 }
 
 // factory mode
@@ -68,7 +70,12 @@ func (c *command) Start(delay time.Duration) {
 	if c.cmd != nil && c.cmd.ProcessState.Exited() {
 		log.Fatal("Failed to start command: previous command hasn't exit.")
 	}
-	cmd := exec.Command(c.name, c.args...)
+
+	// here may execute "chill go run main.go" or some other
+
+	ctx, cancel := context.WithCancel(context.TODO())
+
+	cmd := exec.CommandContext(ctx, c.name, c.args...)
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -86,6 +93,7 @@ func (c *command) Start(delay time.Duration) {
 	} else {
 		c.cmd = cmd
 		c.exit = exit
+		c.cancel = cancel
 
 		go func() {
 			defer func() {
@@ -106,48 +114,56 @@ func (c *command) Start(delay time.Duration) {
 			}
 		}()
 	}
+	cancel()
+	select {
+	case <-ctx.Done():
+	}
 }
 
 func (c *command) Terminate(wait time.Duration) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	defer func() {
-		c.cmd = nil
-	}()
-
-	if c.cmd == nil {
-		return
-	}
-
-	if c.cmd.ProcessState != nil && c.cmd.ProcessState.Exited() {
-		return
-	}
-
-	log.Info("try to make application stopping......")
-	// Try to stop the process by sending a SIGINT sinnal.
-	if err := c.kill(syscall.SIGINT); err != nil {
-		log.Fatalf("Failed to terminate process with interrupt: %s", err.Error())
-	}
-
-	for {
-		select {
-		case <-c.exit:
-			return
-		case <-time.After(wait):
-			log.Info("-Killing process")
-			//may be cannot kill process
-			c.kill(syscall.SIGTERM)
-		}
-	}
+	c.cancel()
 }
 
-func (c *command) kill(sig syscall.Signal) error {
-	cmd := c.cmd
+// func (c *command) Terminate(wait time.Duration) {
+// 	c.mutex.Lock()
+// 	defer c.mutex.Unlock()
 
-	if pgid, err := syscall.Getpgid(cmd.Process.Pid); err == nil {
-		return syscall.Kill(-pgid, sig)
-	} else {
-		return err
-	}
-}
+// 	defer func() {
+// 		c.cmd = nil
+// 	}()
+
+// 	if c.cmd == nil {
+// 		return
+// 	}
+
+// 	if c.cmd.ProcessState != nil && c.cmd.ProcessState.Exited() {
+// 		return
+// 	}
+
+// 	log.Info("try to make application stopping......")
+// 	// Try to stop the process by sending a SIGINT signal.
+// 	if err := c.kill(syscall.SIGINT); err != nil {
+// 		log.Fatalf("Failed to terminate process with interrupt: %s", err.Error())
+// 	}
+
+// 	for {
+// 		select {
+// 		case <-c.exit:
+// 			return
+// 		case <-time.After(wait):
+// 			log.Info("-Killing process")
+// 			//may be cannot kill process
+// 			c.kill(syscall.SIGTERM)
+// 		}
+// 	}
+// }
+
+// func (c *command) kill(sig syscall.Signal) error {
+// 	cmd := c.cmd
+
+// 	if pgid, err := syscall.Getpgid(cmd.Process.Pid); err == nil {
+// 		return syscall.Kill(-pgid, sig)
+// 	} else {
+// 		return err
+// 	}
+// }
